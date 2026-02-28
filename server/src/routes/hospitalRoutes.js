@@ -11,6 +11,18 @@ const { asyncHandler } = require('../middlewares/errorHandler');
 const { validateHospital } = require('../middlewares/authMiddleware');
 
 /**
+ * GET /api/hospital/emergencies
+ * Get all active emergencies for the hospital dashboard
+ */
+router.get('/emergencies', asyncHandler(hospitalController.getActiveEmergencies));
+
+/**
+ * POST /api/hospital/emergencies/:requestId/accept
+ * Hospital accepts an emergency
+ */
+router.post('/emergencies/:requestId/accept', asyncHandler(hospitalController.acceptEmergency));
+
+/**
  * GET /api/hospital/all
  * Get all hospitals with resources
  * Query: { available_only? }

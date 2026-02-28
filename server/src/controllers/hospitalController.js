@@ -236,11 +236,82 @@ const checkAlerts = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/hospital/emergencies
+ * Get all active emergencies for the hospital dashboard to display
+ */
+const getActiveEmergencies = async (req, res, next) => {
+  try {
+    const emergencies = await emergencyService.getActiveEmergencies();
+
+    return response.success(res, {
+      count: emergencies.length,
+      emergencies: emergencies.map(e => ({
+        request_id: e.request_id,
+        description: e.description,
+        patient_lat: e.user_latitude,
+        patient_lng: e.user_longitude,
+        severity: e.severity,
+        medical_keywords: e.medical_keywords,
+        status: e.status,
+        created_at: e.created_at,
+        ambulance: e.ambulances ? {
+          ambulance_id: e.ambulances.ambulance_id,
+          driver_name: e.ambulances.driver_name,
+          ambulance_no: e.ambulances.ambulance_no
+        } : null
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/hospital/emergencies/:requestId/accept
+ * Hospital accepts an emergency — updates status to hospital_approved
+ */
+const acceptEmergency = async (req, res, next) => {
+  try {
+    const { requestId } = req.params;
+    const { hospital_id } = req.body;
+
+    if (!requestId) {
+      return response.badRequest(res, ERROR_MESSAGES.INVALID_REQUEST_ID);
+    }
+
+    const emergency = await emergencyService.getEmergencyRequest(requestId);
+
+    // Only allow accepting if ambulance is assigned or searching hospital
+    const allowed = [
+      EMERGENCY_STATUS.AMBULANCE_ASSIGNED,
+      EMERGENCY_STATUS.SEARCHING_HOSPITAL
+    ];
+    if (!allowed.includes(emergency.status)) {
+      return response.badRequest(res, `Cannot accept emergency with status: ${emergency.status}`);
+    }
+
+    const updated = await emergencyService.assignHospital(
+      requestId,
+      hospital_id || null
+    );
+
+    return response.success(res, {
+      request_id: updated.request_id,
+      status: updated.status
+    }, 'Emergency accepted by hospital');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getActiveRequests,
   respondToRequest,
   getHospitalResources,
   getAllHospitals,
   getResourceSummary,
-  checkAlerts
+  checkAlerts,
+  getActiveEmergencies,
+  acceptEmergency
 };
