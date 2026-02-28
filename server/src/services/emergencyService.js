@@ -214,6 +214,32 @@ const getActiveEmergencies = async () => {
   return data || [];
 };
 
+/**
+ * Get pending emergency assigned to a specific ambulance
+ * 
+ * @param {string} ambulanceId - Ambulance ID
+ * @returns {Promise<Object|null>} Pending emergency or null
+ */
+const getPendingForAmbulance = async (ambulanceId) => {
+  const { data, error } = await supabase
+    .from('emergency_requests')
+    .select('*')
+    .eq('ambulance_id', ambulanceId)
+    .in('status', [
+      EMERGENCY_STATUS.AMBULANCE_ASSIGNED,
+      EMERGENCY_STATUS.SEARCHING_AMBULANCE
+    ])
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching pending emergency:', error);
+    return null;
+  }
+
+  return (data && data.length > 0) ? data[0] : null;
+};
+
 module.exports = {
   createEmergencyRequest,
   getEmergencyRequest,
@@ -224,5 +250,6 @@ module.exports = {
   routeToStabilization,
   completeEmergency,
   cancelEmergency,
-  getActiveEmergencies
+  getActiveEmergencies,
+  getPendingForAmbulance
 };

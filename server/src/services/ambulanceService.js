@@ -140,6 +140,26 @@ const getAmbulanceById = async (ambulanceId) => {
 };
 
 /**
+ * Get ambulance by vehicle number (plate)
+ * 
+ * @param {string} ambulanceNo - Ambulance plate number (e.g. MH14HG3043)
+ * @returns {Promise<Object|null>} Ambulance data or null
+ */
+const getAmbulanceByNo = async (ambulanceNo) => {
+  const { data, error } = await supabase
+    .from('ambulances')
+    .select('*')
+    .eq('ambulance_no', ambulanceNo)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
+/**
  * Update ambulance location
  * 
  * @param {string} ambulanceId - Ambulance ID
@@ -211,12 +231,72 @@ const getAvailableCount = async () => {
   return count || 0;
 };
 
+/**
+ * Register a new ambulance crew
+ * Inserts a row into the ambulances table and returns it.
+ *
+ * @param {string} driverName  - Paramedic / driver full name
+ * @param {string} ambulanceNo - Vehicle plate number (e.g. KA-01-HC-005)
+ * @param {string} driverPhone - Contact phone number
+ * @returns {Promise<Object>} Created ambulance record
+ */
+const registerAmbulance = async (driverName, ambulanceNo, driverPhone) => {
+  // Check if plate already registered
+  const existing = await getAmbulanceByNo(ambulanceNo);
+  if (existing) {
+    throw new AppError('An ambulance with this plate number is already registered', 409);
+  }
+
+  const { data, error } = await supabase
+    .from('ambulances')
+    .insert({
+      driver_name: driverName,
+      ambulance_no: ambulanceNo,
+      contact_number: driverPhone,
+      status: AMBULANCE_STATUS.AVAILABLE
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error registering ambulance:', error);
+    throw new AppError('Failed to register ambulance', 500);
+  }
+
+  return data;
+};
+
+/**
+ * Login an ambulance by plate number + phone
+ *
+ * @param {string} ambulanceNo - Vehicle plate number
+ * @param {string} driverPhone - Contact phone number
+ * @returns {Promise<Object|null>} Ambulance record or null
+ */
+const loginAmbulance = async (ambulanceNo, driverPhone) => {
+  const { data, error } = await supabase
+    .from('ambulances')
+    .select('*')
+    .eq('ambulance_no', ambulanceNo)
+    .eq('contact_number', driverPhone)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
 module.exports = {
   findAndAssignNearestAmbulance,
   tryAssignAmbulance,
   releaseAmbulance,
   getAmbulanceById,
+  getAmbulanceByNo,
   updateAmbulanceLocation,
   getAllAmbulances,
-  getAvailableCount
+  getAvailableCount,
+  registerAmbulance,
+  loginAmbulance
 };

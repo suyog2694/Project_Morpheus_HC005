@@ -78,4 +78,40 @@ class ApiService {
     // Placeholder – no dedicated public route yet
     return [];
   }
+
+  // ── Emergency Request ──────────────────────────────────
+  /// POST /api/patient/emergency
+  /// Creates a new emergency and assigns nearest ambulance.
+  /// Returns the full JSON body on success, or null on failure.
+  static Future<Map<String, dynamic>?> createEmergency({
+    required double patientLat,
+    required double patientLng,
+    String? description,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/patient/emergency');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'patient_lat': patientLat,
+              'patient_lng': patientLng,
+              if (description != null && description.isNotEmpty)
+                'description': description,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final body = json.decode(response.body);
+        return body['data'] as Map<String, dynamic>?;
+      }
+      print('createEmergency status ${response.statusCode}: ${response.body}');
+      return null;
+    } catch (e) {
+      print('createEmergency error: $e');
+      return null;
+    }
+  }
 }

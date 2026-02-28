@@ -2,58 +2,75 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import 'api_service.dart';
 
 class AuthService extends ChangeNotifier {
   static const _userKey = 'hc005_user';
 
   UserModel? _user;
-  UserModel? get user     => _user;
-  bool get isLoggedIn     => _user != null;
+  UserModel? get user => _user;
+  bool get isLoggedIn => _user != null;
 
   // ── Restore session on app start ──────────────────────────────
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw   = prefs.getString(_userKey);
+    final raw = prefs.getString(_userKey);
     if (raw != null) {
       _user = UserModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       notifyListeners();
     }
   }
 
-  // ── Register ──────────────────────────────────────────────────
-  Future<void> register({
+  // ── Register (calls server, then persists locally) ────────────
+  /// Returns null on success, or an error message string on failure.
+  Future<String?> register({
     required String name,
     required String ambulanceId,
     required String phone,
   }) async {
-    final user = UserModel(
-      name:        name.trim(),
-      ambulanceId: ambulanceId.trim(),
-      phone:       phone.trim(),
-    );
-    await _persist(user);
-    _user = user;
-    notifyListeners();
+    try {
+      final data = await ApiService.registerAmbulance(
+        driverName: name.trim(),
+        ambulanceNo: ambulanceId.trim(),
+        driverPhone: phone.trim(),
+      );
+
+      final user = UserModel(
+        name: data['driver_name'] ?? name.trim(),
+        ambulanceId: data['ambulance_no'] ?? ambulanceId.trim(),
+        phone: data['driver_phone'] ?? phone.trim(),
+      );
+      await _persist(user);
+      _user = user;
+      notifyListeners();
+      return null; // success
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
   }
 
-  // ── Login ─────────────────────────────────────────────────────
-  // Matches stored ambulanceId + phone. Returns false if no match.
+  // ── Login (calls server, then persists locally) ───────────────
+  /// Returns true on success, false on invalid credentials / error.
   Future<bool> login({
     required String ambulanceId,
     required String phone,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw   = prefs.getString(_userKey);
-    if (raw == null) return false;
+    final data = await ApiService.loginAmbulance(
+      ambulanceNo: ambulanceId.trim(),
+      driverPhone: phone.trim(),
+    );
 
-    final stored = UserModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    if (stored.ambulanceId == ambulanceId.trim() &&
-        stored.phone       == phone.trim()) {
-      _user = stored;
-      notifyListeners();
-      return true;
-    }
-    return false;
+    if (data == null) return false;
+
+    final user = UserModel(
+      name: data['driver_name'] ?? '',
+      ambulanceId: data['ambulance_no'] ?? ambulanceId.trim(),
+      phone: data['driver_phone'] ?? phone.trim(),
+    );
+    await _persist(user);
+    _user = user;
+    notifyListeners();
+    return true;
   }
 
   // ── Update profile ────────────────────────────────────────────
@@ -63,9 +80,9 @@ class AuthService extends ChangeNotifier {
   }) async {
     if (_user == null) return;
     final updated = UserModel(
-      name:        name.trim(),
+      name: name.trim(),
       ambulanceId: _user!.ambulanceId,
-      phone:       phone.trim(),
+      phone: phone.trim(),
     );
     await _persist(updated);
     _user = updated;

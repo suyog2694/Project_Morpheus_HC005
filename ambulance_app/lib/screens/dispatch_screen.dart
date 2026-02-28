@@ -138,7 +138,7 @@
 //         bottom: false,
 //         child: Stack(
 //           children: [
-            
+
 //             Positioned(
 //   top: -30, right: -30,
 //   child: IgnorePointer(  // ← add this
@@ -487,7 +487,9 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/emergency.dart';
+import '../services/mission_controller.dart';
 import 'mission_screen.dart';
 import 'profile_sheet.dart';
 
@@ -496,7 +498,7 @@ class DispatchScreen extends StatelessWidget {
   const DispatchScreen({super.key, required this.emergency});
 
   static const _redDark = Color(0xFFC0392B);
-  static const _bgBody  = Color(0xFFFDF5F5);
+  static const _bgBody = Color(0xFFFDF5F5);
 
   @override
   Widget build(BuildContext context) {
@@ -555,12 +557,20 @@ class DispatchScreen extends StatelessWidget {
                 children: [
                   _HeaderCircleBtn(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 17),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 17,
+                    ),
                   ),
                   const Expanded(child: _PulsingTitle()),
                   _HeaderCircleBtn(
                     onTap: () => ProfileSheet.show(context),
-                    child: const Icon(Icons.person_rounded, color: Colors.white, size: 19),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 19,
+                    ),
                   ),
                 ],
               ),
@@ -605,10 +615,20 @@ class DispatchScreen extends StatelessWidget {
                 foregroundColor: Colors.grey.shade500,
                 side: BorderSide(color: Colors.grey.shade300),
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                // Clear mission so WaitingScreen resumes polling
+                context.read<MissionController>().clearMission();
+                Navigator.pop(context);
+              },
             ),
           ),
           const SizedBox(width: 11),
@@ -617,8 +637,16 @@ class DispatchScreen extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(colors: [Color(0xFFE8362A), Color(0xFFC0392B)]),
-                boxShadow: [BoxShadow(color: _redDark.withOpacity(0.32), blurRadius: 16, offset: const Offset(0, 6))],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE8362A), Color(0xFFC0392B)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _redDark.withOpacity(0.32),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check_rounded, size: 20),
@@ -628,10 +656,17 @@ class DispatchScreen extends StatelessWidget {
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
                 ),
                 onPressed: () {
+                  // Keep the emergency in the controller and go to MissionScreen
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const MissionScreen()),
@@ -652,10 +687,7 @@ class _HeaderCircleBtn extends StatelessWidget {
   final Widget child;
   final VoidCallback onTap;
 
-  const _HeaderCircleBtn({
-    required this.child,
-    required this.onTap,
-  });
+  const _HeaderCircleBtn({required this.child, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -680,19 +712,33 @@ class _HeaderCircleBtn extends StatelessWidget {
 
 class _PulsingTitle extends StatefulWidget {
   const _PulsingTitle();
-  @override State<_PulsingTitle> createState() => _PulsingTitleState();
+  @override
+  State<_PulsingTitle> createState() => _PulsingTitleState();
 }
-class _PulsingTitleState extends State<_PulsingTitle> with SingleTickerProviderStateMixin {
+
+class _PulsingTitleState extends State<_PulsingTitle>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat(reverse: true);
-    _opacity = Tween(begin: 1.0, end: 0.55).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _opacity = Tween(
+      begin: 1.0,
+      end: 0.55,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
-  @override void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => FadeTransition(
@@ -700,38 +746,57 @@ class _PulsingTitleState extends State<_PulsingTitle> with SingleTickerProviderS
     child: const Text(
       '🚨 INCOMING EMERGENCY',
       textAlign: TextAlign.center,
-      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.5,
+      ),
     ),
   );
 }
 
 class _PulseDot extends StatefulWidget {
   const _PulseDot();
-  @override State<_PulseDot> createState() => _PulseDotState();
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
 }
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
   }
-  @override void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _ctrl,
     builder: (_, __) => Container(
-      width: 10, height: 10,
+      width: 10,
+      height: 10,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        boxShadow: [BoxShadow(
-          color: Colors.white.withOpacity((1 - _ctrl.value) * 0.7),
-          blurRadius: _ctrl.value * 12,
-          spreadRadius: _ctrl.value * 3,
-        )],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withOpacity((1 - _ctrl.value) * 0.7),
+            blurRadius: _ctrl.value * 12,
+            spreadRadius: _ctrl.value * 3,
+          ),
+        ],
       ),
     ),
   );
@@ -749,20 +814,33 @@ class _PatientCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
-      boxShadow: [BoxShadow(color: const Color(0xFFC0392B).withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 2))],
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFFC0392B).withOpacity(0.07),
+          blurRadius: 12,
+          offset: const Offset(0, 2),
+        ),
+      ],
       border: Border.all(color: const Color(0xFFC0392B).withOpacity(0.08)),
     ),
     child: Row(
       children: [
         Container(
-          width: 54, height: 54,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFFFDECEA),
-            border: Border.all(color: const Color(0xFFC0392B).withOpacity(0.15), width: 1.5),
+            border: Border.all(
+              color: const Color(0xFFC0392B).withOpacity(0.15),
+              width: 1.5,
+            ),
           ),
           child: Center(
-            child: CustomPaint(size: const Size(24, 24), painter: _CrossPainter()),
+            child: CustomPaint(
+              size: const Size(24, 24),
+              painter: _CrossPainter(),
+            ),
           ),
         ),
         const SizedBox(width: 14),
@@ -770,9 +848,24 @@ class _PatientCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('PATIENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFBBBBBB), letterSpacing: 1.6)),
+              const Text(
+                'PATIENT',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFBBBBBB),
+                  letterSpacing: 1.6,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(name, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A))),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
             ],
           ),
         ),
@@ -784,12 +877,28 @@ class _PatientCard extends StatelessWidget {
 class _CrossPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFC0392B)..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = const Color(0xFFC0392B)
+      ..style = PaintingStyle.fill;
     const r = 2.5;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(size.width * 0.375, 0, size.width * 0.25, size.height), const Radius.circular(r)), paint);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, size.height * 0.375, size.width, size.height * 0.25), const Radius.circular(r)), paint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.width * 0.375, 0, size.width * 0.25, size.height),
+        const Radius.circular(r),
+      ),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, size.height * 0.375, size.width, size.height * 0.25),
+        const Radius.circular(r),
+      ),
+      paint,
+    );
   }
-  @override bool shouldRepaint(_) => false;
+
+  @override
+  bool shouldRepaint(_) => false;
 }
 
 class _InfoTile extends StatelessWidget {
@@ -811,14 +920,24 @@ class _InfoTile extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
-      boxShadow: [BoxShadow(color: const Color(0xFFC0392B).withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 2))],
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFFC0392B).withOpacity(0.06),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
       border: Border.all(color: const Color(0xFFC0392B).withOpacity(0.07)),
     ),
     child: Row(
       children: [
         Container(
-          width: 42, height: 42,
-          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: iconBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Center(child: iconWidget),
         ),
         const SizedBox(width: 14),
@@ -826,9 +945,26 @@ class _InfoTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFBBBBBB), letterSpacing: 1.5)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFBBBBBB),
+                  letterSpacing: 1.5,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -842,41 +978,69 @@ class _InfoTile extends StatelessWidget {
 class _AlertIcon extends StatelessWidget {
   const _AlertIcon();
   @override
-  Widget build(BuildContext context) => CustomPaint(size: const Size(22, 22), painter: _AlertPainter());
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const Size(22, 22), painter: _AlertPainter());
 }
 
 class _AlertPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFC0392B)..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = const Color(0xFFC0392B)
+      ..style = PaintingStyle.fill;
     final cx = size.width / 2;
     final cy = size.height / 2;
     canvas.drawCircle(Offset(cx, cy), size.width / 2, paint);
-    final white = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(cx, cy - 2), width: 3, height: 8), const Radius.circular(1.5)), white);
+    final white = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy - 2), width: 3, height: 8),
+        const Radius.circular(1.5),
+      ),
+      white,
+    );
     canvas.drawCircle(Offset(cx, cy + 6), 1.8, white);
   }
-  @override bool shouldRepaint(_) => false;
+
+  @override
+  bool shouldRepaint(_) => false;
 }
 
 class _LocationIcon extends StatelessWidget {
   const _LocationIcon();
   @override
-  Widget build(BuildContext context) => CustomPaint(size: const Size(22, 22), painter: _LocationPainter());
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const Size(22, 22), painter: _LocationPainter());
 }
 
 class _LocationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF2471D9)..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = const Color(0xFF2471D9)
+      ..style = PaintingStyle.fill;
     final cx = size.width / 2;
     final path = Path();
-    path.addOval(Rect.fromCenter(center: Offset(cx, size.height * 0.38), width: size.width * 0.7, height: size.height * 0.7));
+    path.addOval(
+      Rect.fromCenter(
+        center: Offset(cx, size.height * 0.38),
+        width: size.width * 0.7,
+        height: size.height * 0.7,
+      ),
+    );
     path.moveTo(cx - size.width * 0.18, size.height * 0.6);
     path.lineTo(cx, size.height * 0.95);
     path.lineTo(cx + size.width * 0.18, size.height * 0.6);
     canvas.drawPath(path, paint);
-    canvas.drawCircle(Offset(cx, size.height * 0.38), size.width * 0.18, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      Offset(cx, size.height * 0.38),
+      size.width * 0.18,
+      Paint()..color = Colors.white,
+    );
   }
-  @override bool shouldRepaint(_) => false;
+
+  @override
+  bool shouldRepaint(_) => false;
 }

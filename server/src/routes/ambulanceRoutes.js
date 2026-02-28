@@ -18,10 +18,30 @@ const { validateAmbulance } = require('../middlewares/authMiddleware');
 router.get('/', asyncHandler(ambulanceController.getAllAmbulances));
 
 /**
+ * POST /api/ambulance/register
+ * Register a new ambulance crew
+ * Body: { driver_name, ambulance_no, driver_phone }
+ */
+router.post('/register', asyncHandler(ambulanceController.register));
+
+/**
+ * POST /api/ambulance/login
+ * Login by ambulance plate number + phone
+ * Body: { ambulance_no, driver_phone }
+ */
+router.post('/login', asyncHandler(ambulanceController.login));
+
+/**
  * GET /api/ambulance/:ambulanceId
  * Get ambulance details
  */
 router.get('/:ambulanceId', asyncHandler(ambulanceController.getAmbulanceDetails));
+
+/**
+ * GET /api/ambulance/:ambulanceId/pending
+ * Check for pending emergency assigned to this ambulance
+ */
+router.get('/:ambulanceId/pending', asyncHandler(ambulanceController.getPendingEmergency));
 
 /**
  * POST /api/ambulance/:ambulanceId/respond

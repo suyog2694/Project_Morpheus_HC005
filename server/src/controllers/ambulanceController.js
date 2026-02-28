@@ -216,10 +216,124 @@ const getAllAmbulances = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/ambulance/:ambulanceId/pending
+ * Check if there is a pending emergency assigned to this ambulance
+ */
+const getPendingEmergency = async (req, res, next) => {
+  try {
+    const { ambulanceId } = req.params;
+
+    if (!ambulanceId) {
+      return response.badRequest(res, ERROR_MESSAGES.INVALID_AMBULANCE_ID);
+    }
+
+    // ambulanceId from the app may be the plate number (e.g. MH14HG3043)
+    // Resolve it to the numeric DB ambulance_id
+    let numericId = ambulanceId;
+    if (isNaN(Number(ambulanceId))) {
+      const amb = await ambulanceService.getAmbulanceByNo(ambulanceId);
+      if (!amb) {
+        return response.success(res, { has_emergency: false }, 'Ambulance not found');
+      }
+      numericId = amb.ambulance_id;
+    }
+
+    const pending = await emergencyService.getPendingForAmbulance(numericId);
+
+    if (!pending) {
+      return response.success(res, { has_emergency: false }, 'No pending emergency');
+    }
+
+    return response.success(res, {
+      has_emergency: true,
+      emergency: {
+        request_id: pending.request_id,
+        status: pending.status,
+        description: pending.description,
+        patient_lat: pending.user_latitude,
+        patient_lng: pending.user_longitude,
+        created_at: pending.created_at
+      }
+    }, 'Pending emergency found');
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/ambulance/register
+ * Register a new ambulance crew
+ */
+const register = async (req, res, next) => {
+  try {
+    const { driver_name, ambulance_no, driver_phone } = req.body;
+
+    if (!driver_name || !ambulance_no || !driver_phone) {
+      return response.badRequest(res, 'driver_name, ambulance_no, and driver_phone are required');
+    }
+
+    const ambulance = await ambulanceService.registerAmbulance(
+      driver_name.trim(),
+      ambulance_no.trim(),
+      driver_phone.trim()
+    );
+
+    return response.created(res, {
+      ambulance_id: ambulance.ambulance_id,
+      ambulance_no: ambulance.ambulance_no,
+      driver_name: ambulance.driver_name,
+      driver_phone: ambulance.contact_number,
+      status: ambulance.status
+    }, 'Ambulance registered successfully');
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/ambulance/login
+ * Login by ambulance plate number + phone
+ */
+const login = async (req, res, next) => {
+  try {
+    const { ambulance_no, driver_phone } = req.body;
+
+    if (!ambulance_no || !driver_phone) {
+      return response.badRequest(res, 'ambulance_no and driver_phone are required');
+    }
+
+    const ambulance = await ambulanceService.loginAmbulance(
+      ambulance_no.trim(),
+      driver_phone.trim()
+    );
+
+    if (!ambulance) {
+      return response.error(res, 'Invalid ambulance ID or phone number', HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    return response.success(res, {
+      ambulance_id: ambulance.ambulance_id,
+      ambulance_no: ambulance.ambulance_no,
+      driver_name: ambulance.driver_name,
+      driver_phone: ambulance.contact_number,
+      status: ambulance.status
+    }, 'Login successful');
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   respondToEmergency,
   markArrival,
   updateLocation,
   getAmbulanceDetails,
-  getAllAmbulances
+  getAllAmbulances,
+  getPendingEmergency,
+  register,
+  login
 };

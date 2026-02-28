@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/emergency_model.dart';
 import '../services/speech_service.dart';
 import '../services/language_locale.dart';
+import '../services/api_service.dart';
 
 class DetailsScreen extends StatefulWidget {
   const DetailsScreen({super.key});
@@ -167,15 +168,20 @@ class _DetailsScreenState extends State<DetailsScreen>
                         color: Colors.white.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 16),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(20),
@@ -196,9 +202,10 @@ class _DetailsScreenState extends State<DetailsScreen>
                             child: Text(
                               "HSR Layout, Bengaluru",
                               style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -214,8 +221,11 @@ class _DetailsScreenState extends State<DetailsScreen>
                       color: Colors.white.withOpacity(0.18),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person_outline,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
@@ -268,7 +278,7 @@ class _DetailsScreenState extends State<DetailsScreen>
             color: const Color(0xFFD11A2A).withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 2),
-          )
+          ),
         ],
       ),
       child: TextField(
@@ -312,9 +322,7 @@ class _DetailsScreenState extends State<DetailsScreen>
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFFFFF0F0)
-                  : Colors.white,
+              color: isSelected ? const Color(0xFFFFF0F0) : Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected
@@ -327,7 +335,7 @@ class _DetailsScreenState extends State<DetailsScreen>
                   color: Colors.black.withOpacity(0.04),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
-                )
+                ),
               ],
             ),
             child: Text(
@@ -363,7 +371,7 @@ class _DetailsScreenState extends State<DetailsScreen>
             color: const Color(0xFFD11A2A).withOpacity(0.08),
             blurRadius: 12,
             offset: const Offset(0, 2),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -414,7 +422,7 @@ class _DetailsScreenState extends State<DetailsScreen>
                             color: const Color(0xFFD11A2A).withOpacity(0.4),
                             blurRadius: 20,
                             offset: const Offset(0, 6),
-                          )
+                          ),
                         ],
                       ),
                       child: Icon(
@@ -432,9 +440,10 @@ class _DetailsScreenState extends State<DetailsScreen>
           Text(
             isListening ? "Tap again to stop" : "Tap mic to speak",
             style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFAAAAAA),
-                fontWeight: FontWeight.w600),
+              fontSize: 11,
+              color: Color(0xFFAAAAAA),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -447,7 +456,9 @@ class _DetailsScreenState extends State<DetailsScreen>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 7),
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: isActive
                         ? const Color(0xFFD11A2A).withOpacity(0.12)
@@ -488,7 +499,8 @@ class _DetailsScreenState extends State<DetailsScreen>
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+            borderRadius: BorderRadius.circular(16),
+          ),
           elevation: 6,
           shadowColor: const Color(0xFFD11A2A).withOpacity(0.4),
         ),
@@ -496,18 +508,64 @@ class _DetailsScreenState extends State<DetailsScreen>
         label: const Text(
           "SUBMIT EMERGENCY",
           style: TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
         ),
         onPressed: () async {
-          await getLocation();
+          // 1. Get real GPS position
+          Position? position;
+          try {
+            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+            if (!serviceEnabled) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please turn ON GPS location')),
+              );
+              return;
+            }
+            LocationPermission perm = await Geolocator.checkPermission();
+            if (perm == LocationPermission.denied) {
+              perm = await Geolocator.requestPermission();
+            }
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Location error: $e')));
+            return;
+          }
 
+          // 2. Call server API
+          final desc = descriptionController.text.trim();
+          final data = await ApiService.createEmergency(
+            patientLat: position.latitude,
+            patientLng: position.longitude,
+            description: desc.isEmpty ? null : desc,
+          );
+
+          if (data == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to submit emergency. Please retry.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+
+          // 3. Build model from server response
           final emergency = EmergencyModel(
-            id: "TEMP-001",
-            status: "SEARCHING_AMBULANCE",
-            patientLat: 0,
-            patientLng: 0,
-            description: descriptionController.text,
+            id: data['request_id'] ?? 'UNKNOWN',
+            status: data['status'] ?? 'SEARCHING_AMBULANCE',
+            patientLat: position.latitude,
+            patientLng: position.longitude,
+            description: desc,
             language: selectedLanguage,
+            ambulanceNumber: data['ambulance']?['ambulance_no'],
+            driverName: data['ambulance']?['driver_name'],
           );
 
           Navigator.push(
