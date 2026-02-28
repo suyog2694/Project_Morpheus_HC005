@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tracking_screen.dart';
+import 'assignment_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/emergency_model.dart';
 import '../services/speech_service.dart';
@@ -566,12 +567,13 @@ class _DetailsScreenState extends State<DetailsScreen>
             language: selectedLanguage,
             ambulanceNumber: data['ambulance']?['ambulance_no'],
             driverName: data['ambulance']?['driver_name'],
+            driverPhone: data['ambulance']?['driver_phone'],
           );
 
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TrackingScreen(emergency: emergency),
+              builder: (context) => AssignmentScreen(emergency: emergency),
             ),
           );
         },
