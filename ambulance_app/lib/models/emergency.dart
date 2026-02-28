@@ -6,6 +6,8 @@ class Emergency {
   final String pickupLocation;
   final double? patientLat;
   final double? patientLng;
+  final String? callerName;
+  final String? callerPhone;
 
   Emergency({
     this.requestId = '',
@@ -15,6 +17,8 @@ class Emergency {
     required this.pickupLocation,
     this.patientLat,
     this.patientLng,
+    this.callerName,
+    this.callerPhone,
   });
 
   /// Create from the server's pending-emergency JSON.
@@ -24,7 +28,7 @@ class Emergency {
 
     return Emergency(
       requestId: json['request_id']?.toString() ?? '',
-      patientName: 'Patient',
+      patientName: json['caller_name']?.toString() ?? 'Patient',
       careType: json['description'] ?? 'Emergency',
       description: json['description'] ?? 'No description provided',
       pickupLocation: (lat != null && lng != null)
@@ -32,6 +36,8 @@ class Emergency {
           : 'Location unavailable',
       patientLat: lat,
       patientLng: lng,
+      callerName: json['caller_name']?.toString(),
+      callerPhone: json['caller_phone']?.toString(),
     );
   }
 }

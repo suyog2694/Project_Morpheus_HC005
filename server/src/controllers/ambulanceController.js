@@ -327,6 +327,19 @@ const login = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/ambulance/release-all
+ * Reset all Busy ambulances back to Available
+ */
+const releaseAll = async (req, res, next) => {
+  try {
+    const count = await ambulanceService.releaseAllAmbulances();
+    return response.success(res, { released: count }, `${count} ambulance(s) released`);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   respondToEmergency,
   markArrival,
@@ -335,5 +348,6 @@ module.exports = {
   getAllAmbulances,
   getPendingEmergency,
   register,
-  login
+  login,
+  releaseAll
 };

@@ -163,9 +163,7 @@ const routeToStabilization = async (requestId, centerId) => {
  * @returns {Promise<Object>} Updated emergency request
  */
 const completeEmergency = async (requestId) => {
-  return updateEmergencyStatus(requestId, EMERGENCY_STATUS.COMPLETED, {
-    completed_at: new Date().toISOString()
-  });
+  return updateEmergencyStatus(requestId, EMERGENCY_STATUS.COMPLETED);
 };
 
 /**
@@ -176,10 +174,7 @@ const completeEmergency = async (requestId) => {
  * @returns {Promise<Object>} Updated emergency request
  */
 const cancelEmergency = async (requestId, reason = null) => {
-  return updateEmergencyStatus(requestId, EMERGENCY_STATUS.CANCELLED, {
-    cancellation_reason: reason,
-    cancelled_at: new Date().toISOString()
-  });
+  return updateEmergencyStatus(requestId, EMERGENCY_STATUS.CANCELLED);
 };
 
 /**
@@ -240,6 +235,33 @@ const getPendingForAmbulance = async (ambulanceId) => {
   return (data && data.length > 0) ? data[0] : null;
 };
 
+/**
+ * Cancel ALL active emergencies (bulk cleanup for development/testing).
+ * @returns {Promise<number>} Number of cancelled records
+ */
+const cancelAllActive = async () => {
+  const activeStatuses = [
+    EMERGENCY_STATUS.SEARCHING_AMBULANCE,
+    EMERGENCY_STATUS.AMBULANCE_ASSIGNED,
+    EMERGENCY_STATUS.SEARCHING_HOSPITAL,
+    EMERGENCY_STATUS.HOSPITAL_APPROVED,
+    EMERGENCY_STATUS.ROUTED_TO_STABILIZATION
+  ];
+
+  const { data, error } = await supabase
+    .from('emergency_requests')
+    .update({ status: EMERGENCY_STATUS.CANCELLED })
+    .in('status', activeStatuses)
+    .select();
+
+  if (error) {
+    console.error('Error cancelling all active emergencies:', error);
+    throw new AppError('Failed to cancel active emergencies', 500);
+  }
+
+  return (data && data.length) || 0;
+};
+
 module.exports = {
   createEmergencyRequest,
   getEmergencyRequest,
@@ -250,6 +272,7 @@ module.exports = {
   routeToStabilization,
   completeEmergency,
   cancelEmergency,
+  cancelAllActive,
   getActiveEmergencies,
   getPendingForAmbulance
 };

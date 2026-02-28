@@ -90,6 +90,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../models/emergency.dart';
 import '../services/mission_controller.dart';
 import 'waiting_screen.dart';
 
@@ -124,8 +125,7 @@ class MissionScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       _buildHospitalCard(controller),
                       const SizedBox(height: 14),
-                      if (controller.missionStage == 3)
-                        _buildCompletedBanner(),
+                      if (controller.missionStage == 3) _buildCompletedBanner(),
                     ],
                   ),
                 ),
@@ -167,20 +167,26 @@ class MissionScreen extends StatelessWidget {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 36, height: 36,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 16),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(20),
@@ -189,7 +195,8 @@ class MissionScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 7, height: 7,
+                            width: 7,
+                            height: 7,
                             decoration: const BoxDecoration(
                               color: Color(0xFF4ADE80),
                               shape: BoxShape.circle,
@@ -200,9 +207,10 @@ class MissionScreen extends StatelessWidget {
                             child: Text(
                               stages[stage],
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -212,13 +220,17 @@ class MissionScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person_outline,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
@@ -265,8 +277,9 @@ class MissionScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10, offset: const Offset(0, 2),
-          )
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -300,9 +313,13 @@ class MissionScreen extends StatelessWidget {
                       ? const Color(0xFFD11A2A)
                       : const Color(0xFFEEEEEE),
                   boxShadow: isCurrent
-                      ? [BoxShadow(
-                          color: const Color(0xFFD11A2A).withOpacity(0.4),
-                          blurRadius: 12, spreadRadius: 2)]
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFD11A2A).withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Icon(
@@ -330,8 +347,7 @@ class MissionScreen extends StatelessWidget {
   }
 
   // ── CALLER CARD ──────────────────────────────────────────
-  Widget _buildCallerCard(BuildContext context, dynamic emergency) {
-    // Uses emergency.callerName and emergency.callerPhone from EmergencyModel
+  Widget _buildCallerCard(BuildContext context, Emergency emergency) {
     final String callerName = emergency.callerName ?? "Unknown Caller";
     final String callerPhone = emergency.callerPhone ?? "--";
 
@@ -343,21 +359,22 @@ class MissionScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10, offset: const Offset(0, 2),
-          )
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
         children: [
           // Avatar
           Container(
-            width: 48, height: 48,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: const Color(0xFFD11A2A).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person,
-                color: Color(0xFFD11A2A), size: 26),
+            child: const Icon(Icons.person, color: Color(0xFFD11A2A), size: 26),
           ),
           const SizedBox(width: 14),
           // Name + phone
@@ -400,7 +417,8 @@ class MissionScreen extends StatelessWidget {
               );
             },
             child: Container(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFFD11A2A), Color(0xFFFF4D5E)],
@@ -411,8 +429,9 @@ class MissionScreen extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFD11A2A).withOpacity(0.4),
-                    blurRadius: 12, offset: const Offset(0, 4),
-                  )
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
               child: const Icon(Icons.call, color: Colors.white, size: 22),
@@ -424,7 +443,7 @@ class MissionScreen extends StatelessWidget {
   }
 
   // ── PICKUP CARD ──────────────────────────────────────────
-  Widget _buildPickupCard(dynamic emergency) {
+  Widget _buildPickupCard(Emergency emergency) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -434,8 +453,9 @@ class MissionScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: const Color(0xFFD11A2A).withOpacity(0.06),
-            blurRadius: 10, offset: const Offset(0, 2),
-          )
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -449,8 +469,11 @@ class MissionScreen extends StatelessWidget {
                   color: const Color(0xFFD11A2A).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.location_on,
-                    color: Color(0xFFD11A2A), size: 18),
+                child: const Icon(
+                  Icons.location_on,
+                  color: Color(0xFFD11A2A),
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -484,8 +507,7 @@ class MissionScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.map_outlined,
-                    size: 36, color: Colors.grey.shade400),
+                Icon(Icons.map_outlined, size: 36, color: Colors.grey.shade400),
                 const SizedBox(height: 6),
                 Text(
                   "Navigate to Patient",
@@ -510,21 +532,18 @@ class MissionScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: waiting
-            ? const Color(0xFFFFFBF0)
-            : const Color(0xFFF3FFF5),
+        color: waiting ? const Color(0xFFFFFBF0) : const Color(0xFFF3FFF5),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: waiting
-              ? const Color(0xFFFFE082)
-              : const Color(0xFFC8E6C9),
+          color: waiting ? const Color(0xFFFFE082) : const Color(0xFFC8E6C9),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
             color: (waiting ? Colors.orange : Colors.green).withOpacity(0.06),
-            blurRadius: 10, offset: const Offset(0, 2),
-          )
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -532,17 +551,12 @@ class MissionScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (waiting ? Colors.orange : Colors.green)
-                  .withOpacity(0.12),
+              color: (waiting ? Colors.orange : Colors.green).withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              waiting
-                  ? Icons.hourglass_top_rounded
-                  : Icons.local_hospital,
-              color: waiting
-                  ? Colors.orange.shade700
-                  : Colors.green.shade700,
+              waiting ? Icons.hourglass_top_rounded : Icons.local_hospital,
+              color: waiting ? Colors.orange.shade700 : Colors.green.shade700,
               size: 20,
             ),
           ),
@@ -597,8 +611,7 @@ class MissionScreen extends StatelessWidget {
           ),
           if (!waiting)
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.green.shade600,
                 borderRadius: BorderRadius.circular(20),
@@ -633,8 +646,9 @@ class MissionScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.green.withOpacity(0.3),
-            blurRadius: 16, offset: const Offset(0, 4),
-          )
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: const Row(

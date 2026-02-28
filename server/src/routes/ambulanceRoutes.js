@@ -72,4 +72,10 @@ router.put(
  */
 router.post('/arrival', asyncHandler(ambulanceController.markArrival));
 
+/**
+ * POST /api/ambulance/release-all
+ * Reset all stuck Busy ambulances back to Available
+ */
+router.post('/release-all', asyncHandler(ambulanceController.releaseAll));
+
 module.exports = router;

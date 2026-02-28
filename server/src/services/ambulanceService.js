@@ -76,17 +76,17 @@ const tryAssignAmbulance = async (ambulanceId) => {
   // Use update with WHERE clause for atomic operation
   const { data, error } = await supabase
     .from('ambulances')
-    .update({ 
-      status: AMBULANCE_STATUS.BUSY,
-      assigned_at: new Date().toISOString()
-    })
+    .update({ status: AMBULANCE_STATUS.BUSY })
     .eq('ambulance_id', ambulanceId)
     .eq('status', AMBULANCE_STATUS.AVAILABLE) // Only update if still available
-    .select()
-    .single();
+    .select();
 
-  if (error || !data) {
-    // Ambulance was already assigned by another request
+  if (error) {
+    console.error(`Supabase error assigning ambulance ${ambulanceId}:`, error.message || error);
+    return false;
+  }
+
+  if (!data || data.length === 0) {
     console.log(`Ambulance ${ambulanceId} already assigned, trying next`);
     return false;
   }
@@ -103,10 +103,7 @@ const tryAssignAmbulance = async (ambulanceId) => {
 const releaseAmbulance = async (ambulanceId) => {
   const { data, error } = await supabase
     .from('ambulances')
-    .update({ 
-      status: AMBULANCE_STATUS.AVAILABLE,
-      assigned_at: null
-    })
+    .update({ status: AMBULANCE_STATUS.AVAILABLE })
     .eq('ambulance_id', ambulanceId)
     .select()
     .single();
@@ -117,6 +114,27 @@ const releaseAmbulance = async (ambulanceId) => {
   }
 
   return data;
+};
+
+/**
+ * Release ALL ambulances – reset every row back to Available.
+ * Useful when ambulances get stuck in Busy from incomplete test runs.
+ *
+ * @returns {Promise<number>} Number of ambulances released
+ */
+const releaseAllAmbulances = async () => {
+  const { data, error } = await supabase
+    .from('ambulances')
+    .update({ status: AMBULANCE_STATUS.AVAILABLE })
+    .eq('status', AMBULANCE_STATUS.BUSY)
+    .select();
+
+  if (error) {
+    console.error('Error releasing all ambulances:', error);
+    throw new AppError('Failed to release ambulances', 500);
+  }
+
+  return (data && data.length) || 0;
 };
 
 /**
@@ -292,6 +310,7 @@ module.exports = {
   findAndAssignNearestAmbulance,
   tryAssignAmbulance,
   releaseAmbulance,
+  releaseAllAmbulances,
   getAmbulanceById,
   getAmbulanceByNo,
   updateAmbulanceLocation,
