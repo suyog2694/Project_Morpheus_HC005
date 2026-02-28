@@ -1,0 +1,23 @@
+/* Reset Vite default styles */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #eef3f8;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* remove Vite root constraints */
+#root {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+}
+
+/* ensure text is visible */
+h1, h2, h3, p {
+  color: #111;
+}
