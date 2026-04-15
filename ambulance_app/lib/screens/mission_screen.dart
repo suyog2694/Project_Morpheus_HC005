@@ -170,7 +170,7 @@ class MissionScreen extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -188,7 +188,7 @@ class MissionScreen extends StatelessWidget {
                         vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -488,7 +488,7 @@ class MissionScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            emergency.pickupLocation ?? "--",
+            emergency.pickupLocation,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,

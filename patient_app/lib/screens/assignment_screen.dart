@@ -4,7 +4,6 @@ import 'tracking_screen.dart';
 
 // ── Palette ──────────────────────────────────────────────
 const _red = Color(0xFFD11A2A);
-const _redDark = Color(0xFFA50F1C);
 const _green = Color(0xFF16A34A);
 const _greenSoft = Color(0xFFDCFCE7);
 const _greenBorder = Color(0xFFA7F3D0);

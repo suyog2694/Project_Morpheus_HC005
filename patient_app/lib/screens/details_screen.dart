@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'tracking_screen.dart';
 import 'assignment_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/emergency_model.dart';
