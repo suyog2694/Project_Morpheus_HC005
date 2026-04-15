@@ -209,7 +209,7 @@ class _NearbyServicesScreenState extends State<NearbyServicesScreen> {
         ),
         const SizedBox(width: 6),
         Text(
-          "HSR Layout, Bengaluru",
+          "Lonavala",
           style: TextStyle(
             color: Colors.white.withOpacity(0.88),
             fontSize: 11,

@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "HSR Layout, Bengaluru",
+                              "Lonavala",
                               style: TextStyle(
                                   color: Colors.white.withOpacity(0.88),
                                   fontSize: 11,
@@ -305,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                   // ── app name ──
                   const Text(
-                    "HC005",
+                    "CareLink",
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 36,

@@ -213,7 +213,7 @@ class _WaitingScreenState extends State<WaitingScreen>
                   const SizedBox(width: 36),
                   const Expanded(
                     child: Text(
-                      'HC005',
+                      'CareLink',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,

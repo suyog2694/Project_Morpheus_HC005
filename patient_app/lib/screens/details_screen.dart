@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'tracking_screen.dart';
 import 'assignment_screen.dart';
@@ -21,6 +22,7 @@ class _DetailsScreenState extends State<DetailsScreen>
 
   final SpeechService speechService = SpeechService();
   bool isListening = false;
+  bool _isSubmitting = false;
 
   final List<String> languages = ["English", "हिंदी", "मराठी", "తెలుగు"];
 
@@ -201,7 +203,7 @@ class _DetailsScreenState extends State<DetailsScreen>
                           const SizedBox(width: 6),
                           const Flexible(
                             child: Text(
-                              "HSR Layout, Bengaluru",
+                              "Lonavala",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -496,7 +498,9 @@ class _DetailsScreenState extends State<DetailsScreen>
       width: double.infinity,
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFD11A2A),
+          backgroundColor: _isSubmitting
+              ? const Color(0xFFD11A2A).withOpacity(0.6)
+              : const Color(0xFFD11A2A),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
@@ -505,78 +509,126 @@ class _DetailsScreenState extends State<DetailsScreen>
           elevation: 6,
           shadowColor: const Color(0xFFD11A2A).withOpacity(0.4),
         ),
-        icon: const Icon(Icons.local_hospital_rounded, size: 22),
-        label: const Text(
-          "SUBMIT EMERGENCY",
-          style: TextStyle(
+        icon: _isSubmitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Icon(Icons.local_hospital_rounded, size: 22),
+        label: Text(
+          _isSubmitting ? "SUBMITTING..." : "SUBMIT EMERGENCY",
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
             letterSpacing: 1,
           ),
         ),
-        onPressed: () async {
-          // 1. Get real GPS position
-          Position? position;
-          try {
-            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-            if (!serviceEnabled) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please turn ON GPS location')),
-              );
-              return;
-            }
-            LocationPermission perm = await Geolocator.checkPermission();
-            if (perm == LocationPermission.denied) {
-              perm = await Geolocator.requestPermission();
-            }
-            position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-            );
-          } catch (e) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Location error: $e')));
-            return;
-          }
+        onPressed: _isSubmitting
+            ? null
+            : () async {
+                setState(() => _isSubmitting = true);
 
-          // 2. Call server API
-          final desc = descriptionController.text.trim();
-          final data = await ApiService.createEmergency(
-            patientLat: position.latitude,
-            patientLng: position.longitude,
-            description: desc.isEmpty ? null : desc,
-          );
+                // 1. Get real GPS position
+                Position? position;
+                try {
+                  bool serviceEnabled =
+                      await Geolocator.isLocationServiceEnabled();
+                  if (!serviceEnabled) {
+                    if (!mounted) return;
+                    setState(() => _isSubmitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please turn ON GPS location'),
+                      ),
+                    );
+                    return;
+                  }
+                  LocationPermission perm = await Geolocator.checkPermission();
+                  if (perm == LocationPermission.denied) {
+                    perm = await Geolocator.requestPermission();
+                  }
+                  if (perm == LocationPermission.deniedForever) {
+                    if (!mounted) return;
+                    setState(() => _isSubmitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Location permission permanently denied. Enable it in Settings.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  position = await Geolocator.getCurrentPosition(
+                    desiredAccuracy: LocationAccuracy.high,
+                  ).timeout(const Duration(seconds: 15));
+                } catch (e) {
+                  if (!mounted) return;
+                  setState(() => _isSubmitting = false);
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Location error: $e')));
+                  return;
+                }
 
-          if (data == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Failed to submit emergency. Please retry.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            return;
-          }
+                // 2. Call server API
+                final desc = descriptionController.text.trim();
+                final data = await ApiService.createEmergency(
+                  patientLat: position.latitude,
+                  patientLng: position.longitude,
+                  description: desc.isEmpty ? null : desc,
+                );
 
-          // 3. Build model from server response
-          final emergency = EmergencyModel(
-            id: data['request_id'] ?? 'UNKNOWN',
-            status: data['status'] ?? 'SEARCHING_AMBULANCE',
-            patientLat: position.latitude,
-            patientLng: position.longitude,
-            description: desc,
-            language: selectedLanguage,
-            ambulanceNumber: data['ambulance']?['ambulance_no'],
-            driverName: data['ambulance']?['driver_name'],
-            driverPhone: data['ambulance']?['driver_phone'],
-          );
+                if (!mounted) return;
+                setState(() => _isSubmitting = false);
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AssignmentScreen(emergency: emergency),
-            ),
-          );
-        },
+                if (data == null) {
+                  // API failed — still navigate, show searching state
+                  final emergency = EmergencyModel(
+                    id: 'PENDING',
+                    status: 'SEARCHING_AMBULANCE',
+                    patientLat: position.latitude,
+                    patientLng: position.longitude,
+                    description: desc,
+                    language: selectedLanguage,
+                  );
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AssignmentScreen(emergency: emergency),
+                    ),
+                  );
+                  return;
+                }
+
+                // 3. Build model from server response
+                final emergency = EmergencyModel(
+                  id: data['request_id']?.toString() ?? 'UNKNOWN',
+                  status: data['status']?.toString() ?? 'SEARCHING_AMBULANCE',
+                  patientLat: position.latitude,
+                  patientLng: position.longitude,
+                  description: desc,
+                  language: selectedLanguage,
+                  ambulanceNumber: data['ambulance']?['ambulance_no']
+                      ?.toString(),
+                  driverName: data['ambulance']?['driver_name']?.toString(),
+                  driverPhone: data['ambulance']?['driver_phone']?.toString(),
+                );
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        AssignmentScreen(emergency: emergency),
+                  ),
+                );
+              },
       ),
     );
   }

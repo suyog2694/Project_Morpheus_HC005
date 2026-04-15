@@ -250,7 +250,7 @@ class _AuthHero extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'HC005',
+                    'Carelink',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,

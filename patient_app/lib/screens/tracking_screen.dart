@@ -104,7 +104,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                           const SizedBox(width: 6),
                           const Flexible(
                             child: Text(
-                              "HSR Layout, Bengaluru",
+                              "Lonavala",
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
