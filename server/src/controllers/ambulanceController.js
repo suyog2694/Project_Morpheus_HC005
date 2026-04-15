@@ -42,12 +42,16 @@ const respondToEmergency = async (req, res, next) => {
         EMERGENCY_STATUS.SEARCHING_HOSPITAL
       );
 
-      // Trigger hospital matching
+      // Trigger hospital matching (pass description and severity if available)
       const matchResult = await hospitalMatcher.matchHospitals(
         requestId,
         emergency.user_latitude,
-        emergency.user_longitude
+        emergency.user_longitude,
+        emergency.description || '',
+        emergency.severity || 'medium'
       );
+
+      console.log(`[Ambulance] Ambulance ${ambulanceId} approved request ${requestId}, hospital matching triggered`);
 
       return response.success(res, {
         request_id: requestId,

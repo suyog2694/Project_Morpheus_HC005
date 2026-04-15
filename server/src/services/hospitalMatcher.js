@@ -1,32 +1,37 @@
 /**
  * Hospital Matcher Service
- * 
+ *
  * Core service for hospital matching, approval flow, and
  * transaction-safe bed allocation. Handles race conditions
  * when multiple hospitals respond simultaneously.
  */
 
 const { supabase } = require('../config/supabase');
-const { 
-  EMERGENCY_STATUS, 
-  HOSPITAL_REQUEST_STATUS, 
+const {
+  EMERGENCY_STATUS,
+  HOSPITAL_REQUEST_STATUS,
   ERROR_MESSAGES,
-  HTTP_STATUS 
+  HTTP_STATUS
 } = require('../config/constants');
 const { sortByDistance } = require('../utils/distanceCalculator');
 const { AppError } = require('../middlewares/errorHandler');
 const stabilizationService = require('./stabilizationService');
+const { emitHospitalNewRequest, emitAmbulanceHospitalAssignment, emitRequestUpdate } = require('../socket/socketManager');
 
 /**
  * Match and notify hospitals for an emergency request
  * Creates hospital_requests for all eligible hospitals sorted by distance
- * 
+ *
  * @param {string} requestId - Emergency request ID
  * @param {number} patientLat - Patient latitude
  * @param {number} patientLng - Patient longitude
+ * @param {string} description - Patient's initial description
+ * @param {string} severity - Extracted severity (optional)
  * @returns {Promise<Object>} Matching result
  */
-const matchHospitals = async (requestId, patientLat, patientLng) => {
+const matchHospitals = async (requestId, patientLat, patientLng, description = '', severity = 'medium') => {
+  console.log(`[HospitalMatcher] Finding hospitals for request ${requestId} at (${patientLat}, ${patientLng})`);
+
   // Fetch hospitals with available beds
   const { data: hospitalsWithResources, error: fetchError } = await supabase
     .from('hospitals')
@@ -41,7 +46,7 @@ const matchHospitals = async (requestId, patientLat, patientLng) => {
     `);
 
   if (fetchError) {
-    console.error('Error fetching hospitals:', fetchError);
+    console.error('[HospitalMatcher] Error fetching hospitals:', fetchError);
     throw new AppError('Failed to fetch hospitals', 500);
   }
 
@@ -52,11 +57,11 @@ const matchHospitals = async (requestId, patientLat, patientLng) => {
   });
 
   if (eligibleHospitals.length === 0) {
-    console.log(`No hospitals with available beds for request ${requestId}`);
+    console.log(`[HospitalMatcher] No hospitals with available beds for request ${requestId}`);
     // Trigger stabilization fallback
     return await stabilizationService.findNearestStabilizationCenter(
-      requestId, 
-      patientLat, 
+      requestId,
+      patientLat,
       patientLng
     );
   }
@@ -69,6 +74,8 @@ const matchHospitals = async (requestId, patientLat, patientLng) => {
     'latitude',
     'longitude'
   );
+
+  console.log(`[HospitalMatcher] Found ${sortedHospitals.length} eligible hospitals for request ${requestId}`);
 
   // Create hospital_requests for all eligible hospitals
   const hospitalRequests = sortedHospitals.map((hospital, index) => ({
@@ -85,7 +92,7 @@ const matchHospitals = async (requestId, patientLat, patientLng) => {
     .insert(hospitalRequests);
 
   if (insertError) {
-    console.error('Error creating hospital requests:', insertError);
+    console.error('[HospitalMatcher] Error creating hospital requests:', insertError);
     throw new AppError('Failed to create hospital requests', 500);
   }
 
@@ -95,7 +102,24 @@ const matchHospitals = async (requestId, patientLat, patientLng) => {
     .update({ status: EMERGENCY_STATUS.SEARCHING_HOSPITAL })
     .eq('request_id', requestId);
 
-  console.log(`Created ${hospitalRequests.length} hospital requests for request ${requestId}`);
+  console.log(`[HospitalMatcher] Created ${hospitalRequests.length} hospital requests for request ${requestId}`);
+
+  // Emit Socket.IO events to each hospital
+  sortedHospitals.forEach((hospital, index) => {
+    const requestData = {
+      request_id: requestId,
+      patient_latitude: patientLat,
+      patient_longitude: patientLng,
+      description: description,
+      severity: severity,
+      medical_keywords: [],
+      distance_km: hospital.distance,
+      priority_order: index + 1
+    };
+
+    emitHospitalNewRequest(hospital.hospital_id, requestData);
+    console.log(`[HospitalMatcher] Notified hospital ${hospital.hospital_id} via Socket.IO`);
+  });
 
   return {
     success: true,
@@ -210,6 +234,51 @@ const processHospitalApproval = async (hospitalRequestId, hospitalId, requestId)
     .eq('hospital_id', hospitalId)
     .single();
 
+  // Fetch emergency request to get ambulance_id and patient details
+  const { data: emergency } = await supabase
+    .from('emergency_requests')
+    .select('*, ambulances(*)')
+    .eq('request_id', requestId)
+    .single();
+
+  console.log(`[HospitalMatcher] Hospital ${hospitalId} approved request ${requestId}`);
+
+  // Notify ambulance driver about hospital assignment
+  if (emergency && emergency.ambulance_id) {
+    const ambulanceData = {
+      request_id: requestId,
+      hospital_id: hospital.hospital_id,
+      hospital_name: hospital.name,
+      hospital_latitude: hospital.latitude,
+      hospital_longitude: hospital.longitude,
+      hospital_address: hospital.address,
+      hospital_contact: hospital.contact_number,
+      patient_status: 'en_route_to_hospital'
+    };
+    emitAmbulanceHospitalAssignment(emergency.ambulance_id, ambulanceData);
+    console.log(`[HospitalMatcher] Notified ambulance ${emergency.ambulance_id} of hospital assignment`);
+  }
+
+  // Notify patient about hospital assignment
+  if (emergency) {
+    emitRequestUpdate(requestId, {
+      status: EMERGENCY_STATUS.HOSPITAL_APPROVED,
+      ambulance: emergency.ambulances ? {
+        ambulance_id: emergency.ambulances.ambulance_id,
+        driver_name: emergency.ambulances.driver_name,
+        ambulance_no: emergency.ambulances.ambulance_no
+      } : null,
+      hospital: {
+        hospital_id: hospital.hospital_id,
+        name: hospital.name,
+        latitude: hospital.latitude,
+        longitude: hospital.longitude,
+        address: hospital.address
+      }
+    });
+    console.log(`[HospitalMatcher] Notified patient of hospital assignment for request ${requestId}`);
+  }
+
   return {
     success: true,
     message: 'Hospital approved successfully',
@@ -251,7 +320,7 @@ const processHospitalRejection = async (hospitalRequestId, requestId) => {
   if (error || !nextHospitalRequest) {
     // No more pending hospitals - trigger stabilization fallback
     console.log(`All hospitals rejected for request ${requestId}, routing to stabilization`);
-    
+
     // Get emergency request location
     const { data: emergency } = await supabase
       .from('emergency_requests')
@@ -268,6 +337,34 @@ const processHospitalRejection = async (hospitalRequestId, requestId) => {
     }
 
     throw new AppError('All hospitals rejected and no stabilization center available', 503);
+  }
+
+  // Notify the next hospital via Socket.IO
+  const { data: emergency } = await supabase
+    .from('emergency_requests')
+    .select('user_latitude, user_longitude, description, severity')
+    .eq('request_id', requestId)
+    .single();
+
+  if (emergency) {
+    const nextHospital = nextHospitalRequest.hospitals;
+    emitHospitalNewRequest(nextHospital.hospital_id, {
+      request_id: requestId,
+      patient_latitude: emergency.user_latitude,
+      patient_longitude: emergency.user_longitude,
+      description: emergency.description || '',
+      severity: emergency.severity || 'medium',
+      medical_keywords: [],
+      distance_km: nextHospitalRequest.distance_km,
+      priority_order: nextHospitalRequest.priority_order
+    });
+    console.log(`[HospitalMatcher] Notified next hospital ${nextHospital.hospital_id} via Socket.IO after rejection`);
+
+    // Notify patient that next hospital is being contacted
+    emitRequestUpdate(requestId, {
+      status: EMERGENCY_STATUS.SEARCHING_HOSPITAL,
+      message: 'Next hospital contacted'
+    });
   }
 
   return {

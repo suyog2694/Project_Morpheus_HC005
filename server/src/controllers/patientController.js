@@ -1,6 +1,6 @@
 /**
  * Patient Controller
- * 
+ *
  * Handles patient-facing API endpoints.
  * Thin layer that delegates to services.
  */
@@ -10,6 +10,7 @@ const { extractMedicalKeywords } = require('../utils/geminiExtractor');
 const { isValidCoordinate } = require('../utils/distanceCalculator');
 const response = require('../utils/responseFormatter');
 const { EMERGENCY_STATUS, ERROR_MESSAGES, HTTP_STATUS } = require('../config/constants');
+const { emitNewAssignment, emitRequestUpdate } = require('../socket/socketManager');
 
 /**
  * POST /api/patient/emergency
@@ -24,12 +25,16 @@ const createEmergency = async (req, res, next) => {
       return response.badRequest(res, 'Invalid or missing patient coordinates');
     }
 
+    console.log(`[Patient] Emergency request created at (${patient_lat}, ${patient_lng})`);
+
     // Step 1: Create emergency request
     const emergency = await emergencyService.createEmergencyRequest(
       patient_lat,
       patient_lng,
       description
     );
+
+    console.log(`[Patient] Emergency created: ${emergency.request_id}, searching for ambulance...`);
 
     // Step 2: Find and assign nearest ambulance
     const ambulance = await ambulanceService.findAndAssignNearestAmbulance(
@@ -38,6 +43,7 @@ const createEmergency = async (req, res, next) => {
     );
 
     if (!ambulance) {
+      console.log(`[Patient] No ambulances available for request ${emergency.request_id}`);
       return response.error(
         res,
         ERROR_MESSAGES.NO_AMBULANCE_AVAILABLE,
@@ -45,11 +51,36 @@ const createEmergency = async (req, res, next) => {
       );
     }
 
-    // Step 3: Update emergency with ambulance assignment
+    console.log(`[Patient] Found ambulance ${ambulance.ambulance_id} for request ${emergency.request_id}`);
+
+    // Step 3: Update emergency with ambulance assignment (this also creates dispatch record)
     const updatedEmergency = await emergencyService.assignAmbulance(
       emergency.request_id,
       ambulance.ambulance_id
     );
+
+    console.log(`[Patient] Ambulance ${ambulance.ambulance_id} assigned to request ${emergency.request_id}`);
+
+    // Step 4: Emit Socket.IO event to notify ambulance driver
+    const assignmentData = {
+      request_id: emergency.request_id,
+      patient_latitude: patient_lat,
+      patient_longitude: patient_lng,
+      description: description || '',
+      severity: emergency.severity || 'medium'
+    };
+
+    emitNewAssignment(ambulance.ambulance_id, assignmentData);
+
+    // Also emit status update to patient
+    emitRequestUpdate(emergency.request_id, {
+      status: EMERGENCY_STATUS.AMBULANCE_ASSIGNED,
+      ambulance: {
+        ambulance_id: ambulance.ambulance_id,
+        driver_name: ambulance.driver_name,
+        ambulance_no: ambulance.ambulance_no
+      }
+    });
 
     return response.created(res, {
       request_id: updatedEmergency.request_id,

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node -c src/socket/socketManager.js)",
+      "Bash(node -c src/services/dispatchService.js)",
+      "Bash(node -c src/services/emergencyService.js)",
+      "Bash(node -c src/services/hospitalMatcher.js)",
+      "Bash(node -c src/controllers/patientController.js)",
+      "Bash(node -c src/services/index.js)",
+      "Bash(node -c src/controllers/ambulanceController.js)",
+      "Bash(dir \"E:\\\\Hackathons\\\\Team Ascend\\\\Project Morpheus\\\\New_App\")"
+    ]
+  }
+}

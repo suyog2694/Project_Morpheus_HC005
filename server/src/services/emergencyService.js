@@ -1,22 +1,25 @@
 /**
  * Emergency Service
- * 
+ *
  * Handles emergency request creation and lifecycle management.
  */
 
 const { supabase } = require('../config/supabase');
 const { EMERGENCY_STATUS, ERROR_MESSAGES } = require('../config/constants');
 const { AppError } = require('../middlewares/errorHandler');
+const { createDispatch } = require('./dispatchService');
 
 /**
  * Create a new emergency request
- * 
+ *
  * @param {number} patientLat - Patient latitude
  * @param {number} patientLng - Patient longitude
  * @param {string} description - Initial description (optional)
  * @returns {Promise<Object>} Created emergency request
  */
 const createEmergencyRequest = async (patientLat, patientLng, description = null) => {
+  console.log(`[Emergency] Creating emergency request at (${patientLat}, ${patientLng})`);
+
   const { data, error } = await supabase
     .from('emergency_requests')
     .insert({
@@ -30,9 +33,11 @@ const createEmergencyRequest = async (patientLat, patientLng, description = null
     .single();
 
   if (error) {
-    console.error('Error creating emergency request:', error);
+    console.error('[Emergency] Error creating emergency request:', error);
     throw new AppError('Failed to create emergency request', 500);
   }
+
+  console.log(`[Emergency] Created emergency request: ${data.request_id}`);
 
   return data;
 };
@@ -90,15 +95,28 @@ const updateEmergencyStatus = async (requestId, status, additionalFields = {}) =
 
 /**
  * Assign ambulance to emergency request
- * 
+ *
  * @param {string} requestId - Emergency request ID
  * @param {string} ambulanceId - Ambulance ID
  * @returns {Promise<Object>} Updated emergency request
  */
 const assignAmbulance = async (requestId, ambulanceId) => {
-  return updateEmergencyStatus(requestId, EMERGENCY_STATUS.AMBULANCE_ASSIGNED, {
+  console.log(`[Emergency] Assigning ambulance ${ambulanceId} to request ${requestId}`);
+
+  const result = await updateEmergencyStatus(requestId, EMERGENCY_STATUS.AMBULANCE_ASSIGNED, {
     ambulance_id: ambulanceId
   });
+
+  // Create dispatch record
+  try {
+    await createDispatch(requestId, ambulanceId);
+    console.log(`[Emergency] Dispatch record created for request ${requestId}`);
+  } catch (dispatchError) {
+    // Log but don't fail the assignment if dispatch creation fails
+    console.error(`[Emergency] Warning: Could not create dispatch record: ${dispatchError.message}`);
+  }
+
+  return result;
 };
 
 /**

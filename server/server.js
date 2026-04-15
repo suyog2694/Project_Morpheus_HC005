@@ -12,6 +12,8 @@ require('dotenv').config();
 
 const app = require('./src/app');
 const { testConnection } = require('./src/config/supabase');
+const { init: initSocket } = require('./src/socket/socketManager');
+const http = require('http');
 
 // Server configuration
 const PORT = process.env.PORT || 8000;
@@ -40,7 +42,7 @@ const startServer = async () => {
     console.error('');
   }
 
-  // Start Express server
+  // Start Express server with HTTP (required for Socket.IO)
   const server = app.listen(PORT, () => {
     console.log('==========================================');
     console.log(`✓ Server running on port ${PORT}`);
@@ -69,6 +71,11 @@ const startServer = async () => {
     console.log('    POST /webhook/low-bed-alert');
     console.log('==========================================');
   });
+
+  // Initialize Socket.IO
+  initSocket(server);
+  console.log('✓ Socket.IO real-time events enabled');
+  console.log('');
 
   // Graceful shutdown handling
   const gracefulShutdown = (signal) => {
