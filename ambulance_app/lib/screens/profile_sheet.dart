@@ -110,7 +110,7 @@ class _ProfileSheetContentState extends State<_ProfileSheetContent> {
                   children: [
                     const Icon(Icons.directions_car_rounded, color: _red, size: 14),
                     const SizedBox(width: 6),
-                    Text(user.ambulanceId, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _red, letterSpacing: 0.8)),
+                    Text('${user.ambulanceId}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _red, letterSpacing: 0.8)),
                   ],
                 ),
               ),

@@ -490,6 +490,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/emergency.dart';
 import '../services/mission_controller.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import 'mission_screen.dart';
 import 'profile_sheet.dart';
 
@@ -624,10 +626,20 @@ class DispatchScreen extends StatelessWidget {
                   letterSpacing: 0.8,
                 ),
               ),
-              onPressed: () {
-                // Clear mission so WaitingScreen resumes polling
-                context.read<MissionController>().clearMission();
-                Navigator.pop(context);
+              onPressed: () async {
+                // Tell backend we rejected, then clear mission
+                final ctrl = context.read<MissionController>();
+                final auth = context.read<AuthService>();
+                // Respond reject via API
+                if (ctrl.currentEmergency != null && auth.user != null) {
+                  await ApiService.respondToEmergency(
+                    ambulanceId: auth.user!.ambulanceId.toString(),
+                    requestId: ctrl.currentEmergency!.requestId,
+                    decision: 'reject',
+                  );
+                }
+                ctrl.clearMission();
+                if (context.mounted) Navigator.pop(context);
               },
             ),
           ),
@@ -665,7 +677,10 @@ class DispatchScreen extends StatelessWidget {
                     letterSpacing: 0.8,
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
+                  // Tell backend we accepted the assignment
+                  final ctrl = context.read<MissionController>();
+                  await ctrl.respondToEmergency('approve');
                   // Keep the emergency in the controller and go to MissionScreen
                   Navigator.pushReplacement(
                     context,

@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
+
+// ── Hospital ID (for demo; in production, come from auth) ──
+const HOSPITAL_ID = import.meta.env.VITE_HOSPITAL_ID || "1";
+const HOSPITAL_ID_NUM = parseInt(HOSPITAL_ID, 10) || 1;
 
 const G = () => (
   <style>{`
@@ -483,6 +489,7 @@ export default function App() {
   const alertId    = useRef(0);
   const prevIcu    = useRef(beds.icu);
   const rejectedIds = useRef(new Set());
+  const socketRef   = useRef(null);
 
   // ── Helper: time-ago ────────────────────────────────────────
   function timeAgo(iso) {
@@ -493,7 +500,87 @@ export default function App() {
     return `${Math.floor(diff / 3600)}h ago`;
   }
 
-  // ── Poll server for active emergencies ─────────────────────
+  // ── Convert server emergency to UI card format ──────────────
+  function emergencyToCard(e) {
+    return {
+      id:          e.request_id,
+      description: e.description || "No description",
+      location:    (e.patient_lat && e.patient_lng)
+                     ? `Lat ${Number(e.patient_lat).toFixed(4)}, Lng ${Number(e.patient_lng).toFixed(4)}`
+                     : "Unavailable",
+      severity:    e.severity || "HIGH",
+      status:      e.status,
+      ambulance:   e.ambulance
+                     ? `${e.ambulance.driver_name} — ${e.ambulance.ambulance_no}`
+                     : "Assigning…",
+      timeAgo:     timeAgo(e.created_at),
+    };
+  }
+
+  // ── Add a real-time incoming request from Socket.IO ─────────
+  function addIncomingRequest(data) {
+    const card = {
+      ...emergencyToCard({
+        request_id:   data.request_id,
+        description:   data.description,
+        patient_lat:   data.patient_location?.latitude,
+        patient_lng:   data.patient_location?.longitude,
+        severity:      data.severity,
+        created_at:    data.timestamp,
+      }),
+      isNew: true,
+    };
+    setRequests(prev => {
+      if (prev.some(r => r.id === card.id)) return prev;
+      return [card, ...prev];
+    });
+    // Auto-remove the "new" highlight after 3s
+    setTimeout(() => {
+      setRequests(prev =>
+        prev.map(r => r.id === card.id ? { ...r, isNew: false } : r)
+      );
+    }, 3000);
+  }
+
+  // ── Connect to Socket.IO ────────────────────────────────────
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("[Socket] Connected to server");
+      socket.emit("register_hospital", { hospitalId: HOSPITAL_ID_NUM }, (res) => {
+        console.log("[Socket] register_hospital response:", res);
+      });
+    });
+
+    // Listen for new emergency requests from the server
+    socket.on("hospital_new_request", (data) => {
+      console.log("[Socket] hospital_new_request:", data);
+      addIncomingRequest(data);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("[Socket] Disconnected");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("[Socket] Connection error:", err);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
+
+  // ── Poll server for active emergencies (reduced frequency) ──
   useEffect(() => {
     let active = true;
 
@@ -507,19 +594,7 @@ export default function App() {
           const acceptedIds = new Set(acceptedPatients.map(p => p.id));
           const incoming = json.data.emergencies
             .filter(e => !acceptedIds.has(e.request_id) && !rejectedIds.current.has(e.request_id))
-            .map(e => ({
-              id:          e.request_id,
-              description: e.description || "No description",
-              location:    (e.patient_lat && e.patient_lng)
-                             ? `Lat ${Number(e.patient_lat).toFixed(4)}, Lng ${Number(e.patient_lng).toFixed(4)}`
-                             : "Unavailable",
-              severity:    e.severity || "HIGH",
-              status:      e.status,
-              ambulance:   e.ambulance
-                             ? `${e.ambulance.driver_name} — ${e.ambulance.ambulance_no}`
-                             : "Assigning…",
-              timeAgo:     timeAgo(e.created_at),
-            }));
+            .map(emergencyToCard);
           setRequests(incoming);
         }
       } catch (err) {
@@ -528,7 +603,8 @@ export default function App() {
     };
 
     fetchEmergencies();
-    const timer = setInterval(fetchEmergencies, 5000);
+    // Reduced polling to every 15s (Socket.IO handles real-time adds)
+    const timer = setInterval(fetchEmergencies, 15000);
     return () => { active = false; clearInterval(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acceptedPatients]);
@@ -557,16 +633,63 @@ export default function App() {
     setAcceptedPatients(p => [sel, ...p]);
     setRequests(p => p.filter(r => r.id !== id));
     try {
-      await fetch(`${API_BASE}/hospital/emergencies/${id}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      // Use the proper respond endpoint for hospital matching workflow
+      // First fetch active-requests to get the hospital_request_id
+      const res = await fetch(`${API_BASE}/hospital/active-requests/${HOSPITAL_ID}`);
+      const json = await res.json();
+      let hospitalRequestId = null;
+      if (json.success && json.data?.requests) {
+        const match = json.data.requests.find(
+          r => r.request_id === id && r.status === "pending"
+        );
+        hospitalRequestId = match?.hospital_request_id;
+      }
+      // Fallback: try direct accept endpoint
+      if (!hospitalRequestId) {
+        await fetch(`${API_BASE}/hospital/emergencies/${id}/accept`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hospital_id: HOSPITAL_ID }),
+        });
+      } else {
+        await fetch(`${API_BASE}/hospital/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hospitalRequestId,
+            decision: "approve",
+          }),
+        });
+      }
     } catch (err) { console.error("Accept error:", err); }
   }
-  function rejectRequest(id) {
+
+  // ── Reject: tell server then remove card ──────────────────
+  async function rejectRequest(id) {
     rejectedIds.current.add(id);
     setRequests(p => p.filter(r => r.id !== id));
+    try {
+      // Try to find the hospital_request_id for proper rejection
+      const res = await fetch(`${API_BASE}/hospital/active-requests/${HOSPITAL_ID}`);
+      const json = await res.json();
+      let hospitalRequestId = null;
+      if (json.success && json.data?.requests) {
+        const match = json.data.requests.find(
+          r => r.request_id === id && r.status === "pending"
+        );
+        hospitalRequestId = match?.hospital_request_id;
+      }
+      if (hospitalRequestId) {
+        await fetch(`${API_BASE}/hospital/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hospitalRequestId,
+            decision: "reject",
+          }),
+        });
+      }
+    } catch (err) { console.error("Reject error:", err); }
   }
   function dismissAlert(id)  { setAlerts(p => p.filter(a => a.id !== id)); }
 

@@ -37,7 +37,8 @@ class AuthService extends ChangeNotifier {
 
       final user = UserModel(
         name: data['driver_name'] ?? name.trim(),
-        ambulanceId: data['ambulance_no'] ?? ambulanceId.trim(),
+        ambulanceId: data['ambulance_id'] ?? int.tryParse(ambulanceId.trim()) ?? 0,
+        ambulanceNo: data['ambulance_no'] ?? ambulanceId.trim(),
         phone: data['driver_phone'] ?? phone.trim(),
       );
       await _persist(user);
@@ -64,7 +65,8 @@ class AuthService extends ChangeNotifier {
 
     final user = UserModel(
       name: data['driver_name'] ?? '',
-      ambulanceId: data['ambulance_no'] ?? ambulanceId.trim(),
+      ambulanceId: data['ambulance_id'] ?? int.tryParse(ambulanceId.trim()) ?? 0,
+      ambulanceNo: data['ambulance_no'] ?? ambulanceId.trim(),
       phone: data['driver_phone'] ?? phone.trim(),
     );
     await _persist(user);
@@ -82,6 +84,7 @@ class AuthService extends ChangeNotifier {
     final updated = UserModel(
       name: name.trim(),
       ambulanceId: _user!.ambulanceId,
+      ambulanceNo: _user!.ambulanceNo,
       phone: phone.trim(),
     );
     await _persist(updated);

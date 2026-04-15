@@ -1,29 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-// import 'services/mission_controller.dart';
-// import 'screens/waiting_screen.dart';
-
-// void main() {
-//   runApp(const AmbulanceApp());
-// }
-
-// class AmbulanceApp extends StatelessWidget {
-//   const AmbulanceApp({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return ChangeNotifierProvider(
-//       create: (_) => MissionController(),
-//       child: MaterialApp(
-//         debugShowCheckedModeBanner: false,
-//         title: 'HC005 Ambulance',
-//         theme: ThemeData(primarySwatch: Colors.red),
-//         home: const WaitingScreen(),
-//       ),
-//     );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';

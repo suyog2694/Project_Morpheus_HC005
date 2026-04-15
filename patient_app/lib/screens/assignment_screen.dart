@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/emergency_model.dart';
+import '../services/socket_service.dart';
+import '../services/api_service.dart';
 import 'tracking_screen.dart';
 
 // ── Palette ──────────────────────────────────────────────
@@ -28,6 +31,10 @@ class _AssignmentScreenState extends State<AssignmentScreen>
   late AnimationController _slideCtrl;
   late Animation<Offset> _slideAnim;
   late Animation<double> _fadeAnim;
+
+  final SocketService _socketService = SocketService();
+  Timer? _statusPollTimer;
+  String? _lastStatus;
 
   @override
   void initState() {
@@ -61,12 +68,90 @@ class _AssignmentScreenState extends State<AssignmentScreen>
     _checkCtrl.forward().then((_) {
       _slideCtrl.forward();
     });
+
+    // Connect to Socket.IO if we have a real request ID
+    _lastStatus = widget.emergency.status;
+    final requestId = widget.emergency.id;
+    if (requestId != null && requestId.isNotEmpty && requestId != 'PENDING') {
+      _initSocketConnection(requestId);
+      _startStatusPolling(requestId);
+    }
+  }
+
+  void _initSocketConnection(String requestId) {
+    _socketService.connect(requestId, onStatusUpdate: (data) {
+      if (!mounted) return;
+      _handleStatusUpdate(data);
+    });
+  }
+
+  void _startStatusPolling(String requestId) {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted) return;
+      final statusData = await ApiService.getEmergencyStatus(requestId);
+      if (statusData != null && mounted) {
+        _handleStatusUpdate(statusData);
+      }
+    });
+  }
+
+  void _handleStatusUpdate(Map<String, dynamic> data) {
+    final newStatus = data['status']?.toString();
+    if (newStatus == null || newStatus == _lastStatus) return;
+    _lastStatus = newStatus;
+
+    setState(() {
+      // Update ambulance info if provided
+      final ambulance = data['ambulance'] as Map<String, dynamic>?;
+      if (ambulance != null) {
+        widget.emergency.ambulanceNumber =
+            ambulance['ambulance_no']?.toString();
+        widget.emergency.driverName = ambulance['driver_name']?.toString();
+        widget.emergency.driverPhone = ambulance['driver_phone']?.toString();
+      }
+
+      // Update hospital info if provided
+      final hospital = data['hospital'] as Map<String, dynamic>?;
+      if (hospital != null) {
+        widget.emergency.hospitalName = hospital['name']?.toString();
+        widget.emergency.hospitalDepartment = 'Emergency Unit';
+      }
+
+      // Update status
+      _mapBackendStatus(newStatus);
+    });
+  }
+
+  void _mapBackendStatus(String status) {
+    switch (status) {
+      case 'searching_ambulance':
+        widget.emergency.status = 'SEARCHING_AMBULANCE';
+        break;
+      case 'ambulance_assigned':
+        widget.emergency.status = 'AMBULANCE_ASSIGNED';
+        break;
+      case 'searching_hospital':
+        widget.emergency.status = 'HOSPITAL_CONFIRMED';
+        break;
+      case 'hospital_approved':
+      case 'routed_to_stabilization':
+        widget.emergency.status = 'HOSPITAL_CONFIRMED';
+        break;
+      case 'completed':
+        widget.emergency.status = 'COMPLETED';
+        break;
+      default:
+        break;
+    }
   }
 
   @override
   void dispose() {
     _checkCtrl.dispose();
     _slideCtrl.dispose();
+    _statusPollTimer?.cancel();
+    _socketService.disconnect();
     super.dispose();
   }
 

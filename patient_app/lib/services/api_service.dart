@@ -6,6 +6,14 @@ import '../models/stabilization_center.dart';
 import 'api_config.dart';
 
 class ApiService {
+  // ── Helpers ──────────────────────────────────────────────
+  static Map<String, dynamic> _parseResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Request failed: ${response.statusCode} ${response.body}');
+  }
+
   // ── Ambulances ──────────────────────────────────────────
   static Future<List<Ambulance>> getAllAmbulances({String? status}) async {
     try {
@@ -73,16 +81,13 @@ class ApiService {
   }
 
   // ── Stabilization Centers ──────────────────────────────
-  // (if you add a route on the server later)
   static Future<List<StabilizationCenter>> getStabilizationCenters() async {
-    // Placeholder – no dedicated public route yet
     return [];
   }
 
   // ── Emergency Request ──────────────────────────────────
   /// POST /api/patient/emergency
   /// Creates a new emergency and assigns nearest ambulance.
-  /// Returns the full JSON body on success, or null on failure.
   static Future<Map<String, dynamic>?> createEmergency({
     required double patientLat,
     required double patientLng,
@@ -111,6 +116,82 @@ class ApiService {
       return null;
     } catch (e) {
       print('createEmergency error: $e');
+      return null;
+    }
+  }
+
+  // ── Emergency Status ──────────────────────────────────
+  /// GET /api/patient/:requestId/status
+  static Future<Map<String, dynamic>?> getEmergencyStatus(
+      String requestId) async {
+    try {
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}/patient/$requestId/status');
+      final response =
+          await http.get(uri).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body);
+        return body['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('getEmergencyStatus error: $e');
+      return null;
+    }
+  }
+
+  // ── Update Condition ───────────────────────────────────
+  /// POST /api/patient/:requestId/condition
+  static Future<Map<String, dynamic>?> updateCondition({
+    required String requestId,
+    required String conditionText,
+  }) async {
+    try {
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}/patient/$requestId/condition');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'condition_text': conditionText}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body);
+        return body['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('updateCondition error: $e');
+      return null;
+    }
+  }
+
+  // ── Cancel Emergency ────────────────────────────────────
+  /// POST /api/patient/:requestId/cancel
+  static Future<Map<String, dynamic>?> cancelEmergency(
+      String requestId,
+      {String? reason}) async {
+    try {
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}/patient/$requestId/cancel');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({if (reason != null) 'reason': reason}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body);
+        return body['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('cancelEmergency error: $e');
       return null;
     }
   }
