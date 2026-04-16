@@ -61,6 +61,7 @@ import 'package:provider/provider.dart';
 import '../services/mission_controller.dart';
 import '../services/auth_service.dart';
 import 'dispatch_screen.dart';
+import 'profile_sheet.dart';
 
 class WaitingScreen extends StatefulWidget {
   const WaitingScreen({super.key});
@@ -223,17 +224,20 @@ class _WaitingScreenState extends State<WaitingScreen>
                       ),
                     ),
                   ),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.18),
-                    ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: Colors.white,
-                      size: 19,
+                  GestureDetector(
+                    onTap: () => ProfileSheet.show(context),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.18),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 19,
+                      ),
                     ),
                   ),
                 ],

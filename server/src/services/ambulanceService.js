@@ -42,9 +42,21 @@ const findAndAssignNearestAmbulance = async (patientLat, patientLng, excludeIds 
     return null;
   }
 
+  // Filter out ambulances with invalid or missing coordinates
+  const validAmbulances = ambulances.filter(a => {
+    return typeof a.current_latitude === 'number' &&
+           typeof a.current_longitude === 'number' &&
+           !isNaN(a.current_latitude) &&
+           !isNaN(a.current_longitude);
+  });
+
+  if (validAmbulances.length === 0) {
+    return null;
+  }
+
   // Sort by distance and find nearest
   const sortedAmbulances = sortByDistance(
-    ambulances,
+    validAmbulances,
     patientLat,
     patientLng,
     'current_latitude',

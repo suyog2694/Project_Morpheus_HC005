@@ -7,7 +7,8 @@
 
 const { hospitalMatcher, resourceService, emergencyService } = require('../services');
 const response = require('../utils/responseFormatter');
-const { ERROR_MESSAGES, HTTP_STATUS, HOSPITAL_REQUEST_STATUS } = require('../config/constants');
+const { ERROR_MESSAGES, HTTP_STATUS, HOSPITAL_REQUEST_STATUS, EMERGENCY_STATUS } = require('../config/constants');
+const { emitRequestUpdate } = require('../socket/socketManager');
 
 /**
  * GET /api/hospital/active-requests/:hospitalId
@@ -295,6 +296,28 @@ const acceptEmergency = async (req, res, next) => {
       requestId,
       hospital_id || null
     );
+
+    // Re-fetch to get updated hospital info
+    const updatedEmergency = await emergencyService.getEmergencyRequest(requestId);
+
+    // Notify patient about hospital assignment
+    if (updatedEmergency) {
+      emitRequestUpdate(requestId, {
+        status: EMERGENCY_STATUS.HOSPITAL_APPROVED,
+        ambulance: updatedEmergency.ambulances ? {
+          ambulance_id: updatedEmergency.ambulances.ambulance_id,
+          driver_name: updatedEmergency.ambulances.driver_name,
+          ambulance_no: updatedEmergency.ambulances.ambulance_no
+        } : null,
+        hospital: {
+          hospital_id: updatedEmergency.hospitals?.hospital_id,
+          name: updatedEmergency.hospitals?.name,
+          latitude: updatedEmergency.hospitals?.latitude,
+          longitude: updatedEmergency.hospitals?.longitude,
+          address: updatedEmergency.hospitals?.address
+        }
+      });
+    }
 
     return response.success(res, {
       request_id: updated.request_id,
